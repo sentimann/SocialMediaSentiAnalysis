@@ -1,0 +1,63 @@
+import pandas as pd
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+# Download necessary NLTK resources (run this once)
+nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+
+# Load your dataset (replace 'your_data.csv' with your actual file)
+try:
+    df = pd.read_csv('C:\\Users\\laksh\\OneDrive\\Desktop\\your_data.csv')
+except FileNotFoundError:
+    print("Error: your_data.csv not found. Please check the file path.")
+    exit()
+
+# Initialize lemmatizer and stop words
+lemmatizer = WordNetLemmatizer()
+stop_words = set(stopwords.words('english'))
+
+def clean_text(text):
+     if isinstance(text, str):  # Check if text is a string
+        # 1. Removing irrelevant characters (URLs, mentions, special symbols)
+        text = re.sub(r"http\S+|@\S+|[^a-zA-Z0-9\s]", "", text)
+        # 2. Lowercasing
+        text = text.lower()
+        # 3. Tokenization (splitting into words)
+        tokens = text.split()
+        # 4. Stop word removal
+        stop_words = set(stopwords.words('english'))
+        filtered_tokens = [token for token in tokens if token not in stop_words]
+        # 5. Lemmatization
+        lemmatizer = WordNetLemmatizer()
+        lemmatized_tokens = [lemmatizer.lemmatize(token) for token in filtered_tokens]
+        cleaned_text = " ".join(lemmatized_tokens)
+        return cleaned_text
+     else:
+        return ""  # Return empty string for non-string input
+
+ # Apply the cleaning function to a text column (replace 'text_column' with the actual column name)
+if 'text' in df.columns:
+    df['cleaned_text'] = df['text'].apply(clean_text)
+    print(f"Text cleaning applied to text_column")
+else:
+    print(f"Warning: 'text_column' not found in the DataFrame.")
+
+# Handle missing values (example: fill with an empty string or drop rows)
+df['cleaned_text'].fillna('', inplace=True)
+# df.dropna(subset=['cleaned_text'], inplace=True)
+
+# Remove duplicate rows based on the cleaned text (example)
+if 'cleaned_text' in df.columns:
+    df.drop_duplicates(subset=['cleaned_text'], keep='first', inplace=True)
+    print("Duplicate rows removed based on 'cleaned_text'")
+
+# Display the first few rows of the cleaned DataFrame
+print("\nCleaned DataFrame:")
+print(df.head())
+
+# You can now save the cleaned DataFrame to a new file if needed
+df.to_csv('cleaned_data.csv', index=False)

@@ -1,0 +1,81 @@
+import nltk.downloader
+
+
+nltk.downloader.download('vader_lexicon')
+
+import pandas as pd
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import nltk
+
+# Download VADER lexicon if you haven't already
+try:
+    nltk.data.find('sentiment/vader_lexicon.zip')
+except nltk.downloader.DownloadError:
+    nltk.download('vader_lexicon')
+
+
+def score_sentiment(cleaned_text):
+    """
+    Scores the sentiment of a cleaned text using VADER.
+
+    Args:
+        cleaned_text (str): The cleaned text to analyze.
+
+    Returns:
+        dict: A dictionary containing the positive, negative, neutral, and compound scores.
+              Returns None if the input is not a string.
+    """
+    if isinstance(cleaned_text, str):
+        analyzer = SentimentIntensityAnalyzer()
+        vs = analyzer.polarity_scores(cleaned_text)
+        return vs
+    return None
+def categorize_sentiment(compound_score):
+    """
+    Categorizes sentiment based on the compound score.
+
+    Args:
+        compound_score (float): The compound sentiment score.
+
+    Returns:
+        str: The sentiment category ('positive', 'negative', or 'neutral').
+    """
+    if compound_score >= 0.05:
+        return 'positive'
+    elif compound_score <= -0.05:
+        return 'negative'
+    else:
+        return 'neutral'
+
+
+# Load the cleaned_text.csv file
+try:
+    df = pd.read_csv('cleaned_data.csv')
+    print("Successfully loaded 'cleaned_data.csv'")
+except FileNotFoundError:
+    print("Error: 'cleaned_text.csv' not found. Please make sure the file is in the correct directory.")
+ # Apply sentiment scoring to the 'cleaned_text' column
+if 'cleaned_text' in df.columns:
+    df['sentiment_scores'] = df['cleaned_text'].apply(score_sentiment)
+
+    # Expand the sentiment scores dictionary into separate columns
+    df = pd.concat([df, df['sentiment_scores'].apply(pd.Series)], axis=1)
+    df.drop('sentiment_scores', axis=1, inplace=True)
+
+    # Categorize sentiment based on the compound score
+    df['sentiment'] = df['compound'].apply(categorize_sentiment)
+
+    print("\nSentiment Scoring Results:")
+    print(df)
+else:
+    print("Error: 'cleaned_text' column not found in the DataFrame.")
+
+df.to_csv('result.csv', index=False)
+
+try:
+    df = pd.read_csv('result.csv')  # Load the CSV file into a pandas DataFrame
+    print(df)  # Print the entire DataFrame to the console
+    # OR
+    print(df.head()) # Print the first 5 rows
+except FileNotFoundError:
+    print("Error: cleaned_text.csv not found.  Make sure it's in the current directory.")
