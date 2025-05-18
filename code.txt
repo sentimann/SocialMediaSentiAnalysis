@@ -1,0 +1,54 @@
+from google.colab import files
+uploaded = files.upload()
+import pandas as pd
+df = pd.read_csv('project.csv')
+df.head()
+
+
+# 1. Install required libraries
+!pip install pyspark
+!pip install nltk
+
+# 2. Import and download VADER
+import nltk
+nltk.download('vader_lexicon')
+
+# 3. Imports
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import udf
+from pyspark.sql.types import FloatType, StringType
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+# 4. Initialize Spark Session
+spark = SparkSession.builder.appName("SentimentAnalysisFromCSV").getOrCreate()
+
+# 5. Read CSV File
+df = spark.read.csv("project.csv", header=True, inferSchema=True)
+
+# 6. Define UDF for VADER
+sia = SentimentIntensityAnalyzer()
+
+def get_score(text):
+    return float(sia.polarity_scores(text)['compound'])
+
+get_score_udf = udf(get_score, FloatType())
+
+# 7. Add sentiment score
+df = df.withColumn("sentiment_score", get_score_udf(df["text"]))
+
+# 8. Add sentiment label (positive, negative, neutral)
+def get_label(score):
+    if score >= 0.05:
+        return "positive"
+    elif score <= -0.05:
+        return "negative"
+    else:
+        return "neutral"
+
+get_label_udf = udf(get_label, StringType())
+
+df = df.withColumn("sentiment_label", get_label_udf(df["sentiment_score"]))
+
+# 9. Show final result
+df.select("message_id", "text", "sentiment_score", "sentiment_label").show(truncate=False)
+
