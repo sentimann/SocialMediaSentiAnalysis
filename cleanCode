@@ -1,0 +1,61 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, udf
+from pyspark.sql.types import StringType
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+# Download NLTK resources (only run once)
+nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+
+# Initialize Spark session
+spark = SparkSession.builder.appName("TextCleaning").getOrCreate()
+
+# Load the dataset (update path if needed)
+try:
+    df = spark.read.csv("file:///C:/Users/laksh/OneDrive/Desktop/your_data.csv", header=True, inferSchema=True)
+except Exception as e:
+    print(f"Error reading the file: {e}")
+    exit()
+
+# Initialize stop words and lemmatizer
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+
+# Define text cleaning function
+def clean_text(text):
+    if isinstance(text, str):
+        # Remove URLs, mentions, and special characters
+        text = re.sub(r"http\S+|@\S+|[^a-zA-Z0-9\s]", "", text)
+        text = text.lower()
+        tokens = text.split()
+        filtered_tokens = [t for t in tokens if t not in stop_words]
+        lemmatized_tokens = [lemmatizer.lemmatize(token) for token in filtered_tokens]
+        return " ".join(lemmatized_tokens)
+    else:
+        return ""
+
+# Register the function as UDF
+clean_text_udf = udf(clean_text, StringType())
+
+# Apply UDF to the text column
+if 'text' in df.columns:
+    df = df.withColumn('cleaned_text', clean_text_udf(col('text')))
+    print("Text cleaning applied to 'text' column.")
+else:
+    print("Warning: 'text' column not found in the DataFrame.")
+
+# Fill null values in cleaned_text
+df = df.fillna({'cleaned_text': ''})
+
+# Remove duplicate rows based on 'cleaned_text'
+df = df.dropDuplicates(['cleaned_text'])
+
+# Show sample of cleaned data
+df.show(truncate=False)
+
+# Save the cleaned data to CSV
+df.write.mode("overwrite").option("header", True).csv("cleaned_data")
